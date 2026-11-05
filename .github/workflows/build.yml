@@ -1,3 +1,4 @@
+
 name: Build Firmware
 
 on:
@@ -27,6 +28,16 @@ jobs:
 
     - name: Build
       run: make BOARD=${{ matrix.board }}
+
+    - name: Inspect ColourControl
+      run: |
+        FILE="sdk/JN-SW-4170/Components/ZCL/Clusters/Lighting/Include/ColourControl.h"
+
+        echo "=== ColourControl structure ==="
+        grep -n -B 100 -A 5 '} tsCLD_ColourControl;' "$FILE" || true
+
+        echo "=== Colour attributes ==="
+        grep -n -E 'CurrentHue|CurrentSaturation|CurrentX|CurrentY|ColourMode' "$FILE" || true
 
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v7
