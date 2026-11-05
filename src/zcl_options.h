@@ -56,6 +56,8 @@ enum {
 #define LEVEL_CONTROL_SERVER
 #define CLD_COLOUR_CONTROL
 #define COLOUR_CONTROL_SERVER
+/* Hue/Saturation + XY */
+#define CLD_COLOURCONTROL_COLOUR_CAPABILITIES 0x0009
 
 /* Enable Green Power Proxy Basic support. */
 #define CLD_GREENPOWER
