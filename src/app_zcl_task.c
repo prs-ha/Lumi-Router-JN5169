@@ -15,6 +15,7 @@
 #include "app_main.h"
 #include "app_reporting.h"
 #include "app_zcl_task.h"
+#include "app_serial_commands.h"
 #include "zcl_options.h"
 
 /* SDK JN-SW-4170 */
@@ -240,6 +241,8 @@ PRIVATE void APP_ZCL_vHandleClusterCustomCommands(tsZCL_CallBackEvent *psEvent)
             DBG_vPrintf(TRACE_ZCL,
                         "ZCL Endpoint Callback: Identify time=%d\n",
                         psMessage->uMessage.psIdentifyRequestPayload->u16IdentifyTime);
+                        /* Test Zigbee -> UART -> OpenWrt */
+                        APP_vSendSerialMessage("RGB,ON\n");
         }
         else if (psMessage->u8CommandId == E_CLD_IDENTIFY_CMD_IDENTIFY_QUERY) {
             DBG_vPrintf(TRACE_ZCL, "ZCL Endpoint Callback: Identify query\n");
