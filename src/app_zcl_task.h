@@ -14,10 +14,19 @@
 #include "DeviceTemperatureConfiguration.h"
 #include "zcl.h"
 
+#include "OnOff.h"
+#include "LevelControl.h"
+#include "ColourControl.h"
+
 typedef struct {
     tsZCL_ClusterInstance sBasicServer;
     tsZCL_ClusterInstance sIdentifyServer;
     tsZCL_ClusterInstance sDeviceTemperatureConfigurationServer;
+
+    /* RGB Light */
+    tsZCL_ClusterInstance sOnOffServer;
+    tsZCL_ClusterInstance sLevelControlServer;
+    tsZCL_ClusterInstance sColourControlServer;
 
 } APP_tsLumiRouterClusterInstances __attribute__((aligned(4)));
 
@@ -36,6 +45,18 @@ typedef struct {
 
     /* Device Temperature Configuration Cluster - Server */
     tsCLD_DeviceTemperatureConfiguration sDeviceTemperatureConfigurationServerCluster;
+
+    /* On/Off */
+    tsCLD_OnOff sOnOffServerCluster;
+    tsCLD_OnOffCustomDataStructure sOnOffServerCustomDataStructure;
+
+    /* Brightness */
+    tsCLD_LevelControl sLevelControlServerCluster;
+    tsCLD_LevelControlCustomDataStructure sLevelControlServerCustomDataStructure;
+
+    /* Colour */
+    tsCLD_ColourControl sColourControlServerCluster;
+    tsCLD_ColourControlCustomDataStructure sColourControlServerCustomDataStructure;
 
 } APP_tsLumiRouter;
 
