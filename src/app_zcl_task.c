@@ -277,6 +277,27 @@ PRIVATE void APP_ZCL_vHandleClusterCustomCommands(tsZCL_CallBackEvent *psEvent)
 /**
  * @brief Handles cluster state updates
  */
+
+
+/* Converteste un numar 0..255 in text, fara sprintf */
+PRIVATE uint8 APP_u8AppendDecimal(char *pcBuffer, uint8 u8Value)
+{
+    uint8 u8Pos = 0;
+
+    if (u8Value >= 100) {
+        pcBuffer[u8Pos++] = '0' + u8Value / 100;
+    }
+
+    if (u8Value >= 10) {
+        pcBuffer[u8Pos++] = '0' + (u8Value / 10) % 10;
+    }
+
+    pcBuffer[u8Pos++] = '0' + u8Value % 10;
+
+    return u8Pos;
+}
+
+
 PRIVATE void APP_ZCL_vHandleClusterUpdate(tsZCL_CallBackEvent *psEvent)
 {
     uint16 u16ClusterId;
@@ -340,6 +361,45 @@ PRIVATE void APP_ZCL_vHandleClusterUpdate(tsZCL_CallBackEvent *psEvent)
             acMessage[u8Pos++] = '0' + u8Level % 10;
 
             /* Terminator mesaj UART */
+            acMessage[u8Pos++] = '\n';
+            acMessage[u8Pos] = '\0';
+
+            APP_vSendSerialMessage(acMessage);
+        }
+    }
+
+    
+    /* RGB: Hue / Saturation */
+    if (u16ClusterId == LIGHTING_CLUSTER_ID_COLOUR_CONTROL) {
+        static int16 i16LastHue = -1;
+        static int16 i16LastSat = -1;
+
+        uint8 u8Hue =
+            sLumiRouter.sColourControlServerCluster.u8CurrentHue;
+
+        uint8 u8Sat =
+            sLumiRouter.sColourControlServerCluster.u8CurrentSaturation;
+
+        if (i16LastHue != (int16)u8Hue ||
+            i16LastSat != (int16)u8Sat) {
+
+            char acMessage[24];
+            uint8 u8Pos = 0;
+
+            i16LastHue = (int16)u8Hue;
+            i16LastSat = (int16)u8Sat;
+
+            memcpy(acMessage, "RGB,HS,", 7);
+            u8Pos = 7;
+
+            u8Pos += APP_u8AppendDecimal(
+                &acMessage[u8Pos], u8Hue);
+
+            acMessage[u8Pos++] = ',';
+
+            u8Pos += APP_u8AppendDecimal(
+                &acMessage[u8Pos], u8Sat);
+
             acMessage[u8Pos++] = '\n';
             acMessage[u8Pos] = '\0';
 
