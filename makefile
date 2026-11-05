@@ -49,6 +49,9 @@ ZNCLKCMD = AppBuildZBPro.ld
 GP_SUPPORT = 1
 APP_CLUSTERS_GREENPOWER_SRC = 1
 
+# RGB Lighting clusters
+APP_CLUSTERS_LIGHTING_SRC = 1
+
 # Debug options
 DEBUG ?=
 DEBUG_ENABLED := 0
