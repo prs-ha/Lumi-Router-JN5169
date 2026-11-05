@@ -49,6 +49,11 @@ PRIVATE void APP_ZCL_vDeviceSpecific_Init(void);
 
 PUBLIC APP_tsLumiRouter sLumiRouter;
 
+/* RGB attribute control buffers */
+PRIVATE uint8 au8RgbOnOffAttrBits[sizeof(tsCLD_OnOff)];
+PRIVATE uint8 au8RgbLevelAttrBits[sizeof(tsCLD_LevelControl)];
+PRIVATE uint8 au8RgbColourAttrBits[sizeof(tsCLD_ColourControl)];
+
 /* Ensure Basic cluster strings fit the tsCLD_Basic buffers (JN-SW-4170, Basic.h). */
 #define APP_CHECK_BASIC_STRING(name, length, field) \
     typedef char name[((length) <= sizeof(sLumiRouter.sBasicServerCluster.field)) ? 1 : -1]
@@ -327,46 +332,100 @@ PRIVATE teZCL_Status APP_ZCL_eRegisterEndPoint(tfpZCL_ZCLCallBackFunction cbCall
 {
     teZCL_Status eZCL_Status;
 
-    /* Fill in end point details */
-    psDeviceInfo->sEndPoint.u8EndPointNumber = LUMIROUTER_APPLICATION_ENDPOINT;
-    psDeviceInfo->sEndPoint.u16ManufacturerCode = ZCL_MANUFACTURER_CODE;
+    /* Endpoint configuration */
+    psDeviceInfo->sEndPoint.u8EndPointNumber =
+        LUMIROUTER_APPLICATION_ENDPOINT;
+    psDeviceInfo->sEndPoint.u16ManufacturerCode =
+        ZCL_MANUFACTURER_CODE;
     psDeviceInfo->sEndPoint.u16ProfileEnum = HA_PROFILE_ID;
     psDeviceInfo->sEndPoint.bIsManufacturerSpecificProfile = FALSE;
     psDeviceInfo->sEndPoint.u16NumberOfClusters =
-        sizeof(APP_tsLumiRouterClusterInstances) / sizeof(tsZCL_ClusterInstance);
-    psDeviceInfo->sEndPoint.psClusterInstance = (tsZCL_ClusterInstance *)&psDeviceInfo->sClusterInstance;
-    psDeviceInfo->sEndPoint.bDisableDefaultResponse = ZCL_DISABLE_DEFAULT_RESPONSES;
+        sizeof(APP_tsLumiRouterClusterInstances) /
+        sizeof(tsZCL_ClusterInstance);
+    psDeviceInfo->sEndPoint.psClusterInstance =
+        (tsZCL_ClusterInstance *)&psDeviceInfo->sClusterInstance;
+    psDeviceInfo->sEndPoint.bDisableDefaultResponse =
+        ZCL_DISABLE_DEFAULT_RESPONSES;
     psDeviceInfo->sEndPoint.pCallBackFunctions = cbCallBack;
 
-    eZCL_Status = eCLD_BasicCreateBasic(&psDeviceInfo->sClusterInstance.sBasicServer,
-                                        TRUE,
-                                        &sCLD_Basic,
-                                        &psDeviceInfo->sBasicServerCluster,
-                                        &au8BasicClusterAttributeControlBits[0]);
-    if (eZCL_Status != E_ZCL_SUCCESS) {
-        return eZCL_Status;
-    }
-
-    eZCL_Status = eCLD_IdentifyCreateIdentify(&psDeviceInfo->sClusterInstance.sIdentifyServer,
-                                              TRUE,
-                                              &sCLD_Identify,
-                                              &psDeviceInfo->sIdentifyServerCluster,
-                                              &au8IdentifyAttributeControlBits[0],
-                                              &psDeviceInfo->sIdentifyServerCustomDataStructure);
-    if (eZCL_Status != E_ZCL_SUCCESS) {
-        return eZCL_Status;
-    }
-
-    eZCL_Status = eCLD_DeviceTemperatureConfigurationCreateDeviceTemperatureConfiguration(
-        &psDeviceInfo->sClusterInstance.sDeviceTemperatureConfigurationServer,
+    /* Basic */
+    eZCL_Status = eCLD_BasicCreateBasic(
+        &psDeviceInfo->sClusterInstance.sBasicServer,
         TRUE,
-        &sCLD_DeviceTemperatureConfiguration,
-        &psDeviceInfo->sDeviceTemperatureConfigurationServerCluster,
-        &au8DeviceTempConfigClusterAttributeControlBits[0]);
+        &sCLD_Basic,
+        &psDeviceInfo->sBasicServerCluster,
+        &au8BasicClusterAttributeControlBits[0]);
+
     if (eZCL_Status != E_ZCL_SUCCESS) {
         return eZCL_Status;
     }
 
+    /* Identify */
+    eZCL_Status = eCLD_IdentifyCreateIdentify(
+        &psDeviceInfo->sClusterInstance.sIdentifyServer,
+        TRUE,
+        &sCLD_Identify,
+        &psDeviceInfo->sIdentifyServerCluster,
+        &au8IdentifyAttributeControlBits[0],
+        &psDeviceInfo->sIdentifyServerCustomDataStructure);
+
+    if (eZCL_Status != E_ZCL_SUCCESS) {
+        return eZCL_Status;
+    }
+
+    /* Device temperature */
+    eZCL_Status =
+        eCLD_DeviceTemperatureConfigurationCreateDeviceTemperatureConfiguration(
+            &psDeviceInfo->sClusterInstance.sDeviceTemperatureConfigurationServer,
+            TRUE,
+            &sCLD_DeviceTemperatureConfiguration,
+            &psDeviceInfo->sDeviceTemperatureConfigurationServerCluster,
+            &au8DeviceTempConfigClusterAttributeControlBits[0]);
+
+    if (eZCL_Status != E_ZCL_SUCCESS) {
+        return eZCL_Status;
+    }
+
+    /* RGB: On/Off */
+    eZCL_Status = eCLD_OnOffCreateOnOff(
+        &psDeviceInfo->sClusterInstance.sOnOffServer,
+        TRUE,
+        &sCLD_OnOff,
+        &psDeviceInfo->sOnOffServerCluster,
+        au8RgbOnOffAttrBits,
+        &psDeviceInfo->sOnOffServerCustomDataStructure);
+
+    if (eZCL_Status != E_ZCL_SUCCESS) {
+        return eZCL_Status;
+    }
+
+    /* RGB: Brightness */
+    eZCL_Status = eCLD_LevelControlCreateLevelControl(
+        &psDeviceInfo->sClusterInstance.sLevelControlServer,
+        TRUE,
+        &sCLD_LevelControl,
+        &psDeviceInfo->sLevelControlServerCluster,
+        au8RgbLevelAttrBits,
+        &psDeviceInfo->sLevelControlServerCustomDataStructure);
+
+    if (eZCL_Status != E_ZCL_SUCCESS) {
+        return eZCL_Status;
+    }
+
+    /* RGB: Colour control */
+    eZCL_Status = eCLD_ColourControlCreateColourControl(
+        &psDeviceInfo->sClusterInstance.sColourControlServer,
+        TRUE,
+        &sCLD_ColourControl,
+        &psDeviceInfo->sColourControlServerCluster,
+        au8RgbColourAttrBits,
+        &psDeviceInfo->sColourControlServerCustomDataStructure);
+
+    if (eZCL_Status != E_ZCL_SUCCESS) {
+        return eZCL_Status;
+    }
+
+    /* Register all clusters */
     return eZCL_Register(&psDeviceInfo->sEndPoint);
 }
 
