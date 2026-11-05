@@ -241,8 +241,12 @@ PRIVATE void APP_ZCL_vHandleClusterCustomCommands(tsZCL_CallBackEvent *psEvent)
             DBG_vPrintf(TRACE_ZCL,
                         "ZCL Endpoint Callback: Identify time=%d\n",
                         psMessage->uMessage.psIdentifyRequestPayload->u16IdentifyTime);
-                        /* Test Zigbee -> UART -> OpenWrt */
-                        APP_vSendSerialMessage("RGB,ON\n");
+                        /* Control LED prin Zigbee Identify */
+                        if (psMessage->uMessage.psIdentifyRequestPayload->u16IdentifyTime > 0) {
+                            APP_vSendSerialMessage("RGB,ON\n");
+                        } else {
+                            APP_vSendSerialMessage("RGB,OFF\n");
+                        }
         }
         else if (psMessage->u8CommandId == E_CLD_IDENTIFY_CMD_IDENTIFY_QUERY) {
             DBG_vPrintf(TRACE_ZCL, "ZCL Endpoint Callback: Identify query\n");
