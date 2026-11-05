@@ -279,13 +279,39 @@ PRIVATE void APP_ZCL_vHandleClusterCustomCommands(tsZCL_CallBackEvent *psEvent)
  */
 PRIVATE void APP_ZCL_vHandleClusterUpdate(tsZCL_CallBackEvent *psEvent)
 {
-    if (psEvent->psClusterInstance->psClusterDefinition->u16ClusterEnum == GENERAL_CLUSTER_ID_IDENTIFY) {
+    uint16 u16ClusterId;
+
+    if (psEvent->psClusterInstance == NULL ||
+        psEvent->psClusterInstance->psClusterDefinition == NULL) {
+        return;
+    }
+
+    u16ClusterId =
+        psEvent->psClusterInstance->psClusterDefinition->u16ClusterEnum;
+
+    if (u16ClusterId == GENERAL_CLUSTER_ID_IDENTIFY) {
         DBG_vPrintf(TRACE_ZCL,
-                    "ZCL Endpoint Callback: Identify time remaining=%d\n",
-                    ((tsCLD_Identify *)psEvent->psClusterInstance->pvEndPointSharedStructPtr)->u16IdentifyTime);
+            "Identify time remaining=%d\n",
+            sLumiRouter.sIdentifyServerCluster.u16IdentifyTime);
+        return;
+    }
+
+    if (u16ClusterId == GENERAL_CLUSTER_ID_ONOFF) {
+        static int8 i8LastState = -1;
+        int8 i8NewState =
+            sLumiRouter.sOnOffServerCluster.bOnOff ? 1 : 0;
+
+        if (i8NewState != i8LastState) {
+            i8LastState = i8NewState;
+
+            if (i8NewState == 1) {
+                APP_vSendSerialMessage("RGB,ON\n");
+            } else {
+                APP_vSendSerialMessage("RGB,OFF\n");
+            }
+        }
     }
 }
-
 /**
  * @brief Handles a Configure Reporting record
  */
