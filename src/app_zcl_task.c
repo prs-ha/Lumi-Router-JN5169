@@ -5,7 +5,6 @@
 
 #include <jendefs.h>
 #include <string.h>
-#include <stdio.h>
 
 /* Generated */
 #include "pdum_gen.h"
@@ -315,19 +314,38 @@ PRIVATE void APP_ZCL_vHandleClusterUpdate(tsZCL_CallBackEvent *psEvent)
 
     if (u16ClusterId == GENERAL_CLUSTER_ID_LEVEL_CONTROL) {
         static int16 i16LastLevel = -1;
-        int16 i16NewLevel =
+        uint8 u8Level =
             sLumiRouter.sLevelControlServerCluster.u8CurrentLevel;
 
-        if (i16NewLevel != i16LastLevel) {
-            i16LastLevel = i16NewLevel;
+        if (i16LastLevel != (int16)u8Level) {
+            char acMessage[20];
+            uint8 u8Pos = 0;
 
-            char acMessage[32];
-            snprintf(acMessage, sizeof(acMessage),
-                     "RGB,LEVEL,%d\n", i16NewLevel);
+            i16LastLevel = (int16)u8Level;
+
+            /* Prefixul mesajului */
+            memcpy(acMessage, "RGB,LEVEL,", 10);
+            u8Pos = 10;
+
+            /* Convertim nivelul in cifre zecimale */
+            if (u8Level >= 100) {
+                acMessage[u8Pos++] = '0' + u8Level / 100;
+            }
+
+            if (u8Level >= 10) {
+                acMessage[u8Pos++] =
+                    '0' + (u8Level / 10) % 10;
+            }
+
+            acMessage[u8Pos++] = '0' + u8Level % 10;
+
+            /* Terminator mesaj UART */
+            acMessage[u8Pos++] = '\n';
+            acMessage[u8Pos] = '\0';
 
             APP_vSendSerialMessage(acMessage);
         }
-    }  
+    }
 }
 /**
  * @brief Handles a Configure Reporting record
