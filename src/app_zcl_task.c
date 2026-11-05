@@ -23,6 +23,12 @@
 #include "DeviceTemperatureConfiguration.h"
 #include "GreenPower.h"
 #include "Identify.h"
+
+/* RGB Light */
+#include "OnOff.h"
+#include "LevelControl.h"
+#include "ColourControl.h"
+
 #include "ZTimer.h"
 #include "dbg.h"
 #include "zcl.h"
