@@ -5,6 +5,7 @@
 
 #include <jendefs.h>
 #include <string.h>
+#include <stdio.h>
 
 /* Generated */
 #include "pdum_gen.h"
@@ -311,6 +312,22 @@ PRIVATE void APP_ZCL_vHandleClusterUpdate(tsZCL_CallBackEvent *psEvent)
             }
         }
     }
+
+    if (u16ClusterId == GENERAL_CLUSTER_ID_LEVEL_CONTROL) {
+        static int16 i16LastLevel = -1;
+        int16 i16NewLevel =
+            sLumiRouter.sLevelControlServerCluster.u8CurrentLevel;
+
+        if (i16NewLevel != i16LastLevel) {
+            i16LastLevel = i16NewLevel;
+
+            char acMessage[32];
+            snprintf(acMessage, sizeof(acMessage),
+                     "RGB,LEVEL,%d\n", i16NewLevel);
+
+            APP_vSendSerialMessage(acMessage);
+        }
+    }  
 }
 /**
  * @brief Handles a Configure Reporting record
