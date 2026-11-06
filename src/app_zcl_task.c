@@ -37,7 +37,7 @@
 #define TRACE_ZCL FALSE
 #endif
 
-#define ZCL_TICK_TIME ZTIMER_TIME_SEC(1)
+#define ZCL_TICK_TIME ZTIMER_TIME_MSEC(100)
 
 PRIVATE void APP_ZCL_cbGeneralCallback(tsZCL_CallBackEvent *psEvent);
 PRIVATE void APP_ZCL_cbEndpointCallback(tsZCL_CallBackEvent *psEvent);
@@ -111,12 +111,27 @@ PUBLIC void APP_ZCL_vEventHandler(ZPS_tsAfEvent *psStackEvent)
 /**
  * @brief Dispatches the one-second ZCL tick and restarts the timer
  */
+
 PUBLIC void APP_cbTimerZclTick(void *pvParam)
 {
+    static uint8 u8TickCount = 0;
+
     (void)pvParam;
 
-    tsZCL_CallBackEvent sCallBackEvent = {.eEventType = E_ZCL_CBET_TIMER};
-    vZCL_EventHandler(&sCallBackEvent);
+    /* Update brightness transitions every 100 ms */
+    eCLD_LevelControlUpdate(LUMIROUTER_APPLICATION_ENDPOINT);
+
+    /* Keep the original ZCL one-second timer */
+    u8TickCount++;
+
+    if (u8TickCount >= 10) {
+        tsZCL_CallBackEvent sCallBackEvent = {
+            .eEventType = E_ZCL_CBET_TIMER
+        };
+
+        u8TickCount = 0;
+        vZCL_EventHandler(&sCallBackEvent);
+    }
 
     ZTIMER_eStart(u8TimerTick, ZCL_TICK_TIME);
 }
