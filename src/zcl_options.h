@@ -75,7 +75,7 @@ enum {
 #define BAS_MANUF_NAME_STRING "OpenLumi"
 
 #ifdef BOARD_DGNWG05LM
-#define BAS_MODEL_ID_STRING "openlumi.gw_router.dgnwg05lm"
+#define BAS_MODEL_ID_STRING "openlumi.router.dgnwg05lm"
 #endif
 
 #ifdef BOARD_ZHWG11LM
