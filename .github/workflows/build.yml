@@ -12,6 +12,7 @@ jobs:
   build:
     name: Build ${{ matrix.board }}
     runs-on: ubuntu-24.04
+
     strategy:
       fail-fast: false
       matrix:
@@ -38,6 +39,23 @@ jobs:
 
         echo "=== Colour attributes ==="
         grep -n -E 'CurrentHue|CurrentSaturation|CurrentX|CurrentY|ColourMode' "$FILE" || true
+
+    - name: Inspect ColourControl callbacks
+      run: |
+        DIR="sdk/JN-SW-4170/Components/ZCL/Clusters/Lighting/Source"
+
+        echo "=== ColourControl source files ==="
+        ls "$DIR" | grep -i colour || true
+
+        echo "=== Callback events ==="
+        grep -R -n -C 5 \
+          -E 'E_ZCL_CBET_CLUSTER_UPDATE|E_ZCL_CBET_CLUSTER_CUSTOM' \
+          "$DIR"/*Colour* 2>/dev/null | head -160 || true
+
+        echo "=== Hue and Saturation command handling ==="
+        grep -R -n -C 3 \
+          -E 'MoveToHueAndSaturation|MoveToHueAndSat|CURRENT_HUE|CURRENT_SATURATION' \
+          "$DIR" 2>/dev/null | head -160 || true
 
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v7
