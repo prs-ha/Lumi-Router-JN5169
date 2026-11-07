@@ -584,10 +584,31 @@ PRIVATE teZCL_Status APP_TTS_eCommandHandler(
             u8FragIndex >= u8FragCount ||
             u8FragLength == 0 ||
             u8FragLength > TTS_FRAGMENT_BYTES ||
-            au16FragActual[7] != u8FragLength ||
-            u16PayloadSize - u16HeaderSize !=
-                TTS_FRAGMENT_HEADER_BYTES + u8FragLength) {
+            !(
+                /* Variable-length fragment */
+                (au16FragActual[7] == u8FragLength &&
+                 u16PayloadSize - u16HeaderSize ==
+                     TTS_FRAGMENT_HEADER_BYTES + u8FragLength)
+                ||
+                /* Fixed 64-byte fragment with zero padding */
+                (au16FragActual[7] == TTS_FRAGMENT_BYTES &&
+                 u16PayloadSize - u16HeaderSize ==
+                     TTS_FRAGMENT_PAYLOAD_MAX_BYTES)
+            )) {
             return E_ZCL_FAIL;
+        }
+
+        /* All non-final fragments must contain 64 useful bytes. */
+        if ((uint16)u8FragIndex + 1 < u8FragCount &&
+            u8FragLength != TTS_FRAGMENT_BYTES) {
+            return E_ZCL_FAIL;
+        }
+
+        /* Reject nonzero padding in fixed-size fragments. */
+        for (u8J = u8FragLength; u8J < au16FragActual[7]; u8J++) {
+            if (au8Fragment[u8J] != 0) {
+                return E_ZCL_FAIL;
+            }
         }
 
         /* Format: TTS,FRAG,IIII,L,I,C,NN,HEX */
