@@ -441,13 +441,12 @@ PRIVATE void APP_ZCL_vHandleConfigureReportingRecord(tsZCL_CallBackEvent *psEven
 }
 
 /**
- * Experimental TTS receive test.
+ * Experimental Zigbee TTS receiver.
  *
- * Accept only command 0x00, manufacturer 0x1037,
- * client-to-server direction, and exactly one
- * payload byte equal to protocol version 1.
+ * Command 0x00: original one-byte test.
+ * Command 0x02: short ASCII message, maximum 32 bytes.
  *
- * No fragment assembly or audio playback yet.
+ * This stage only logs to UART. No audio playback.
  */
 PRIVATE teZCL_Status APP_TTS_eCommandHandler(
     ZPS_tsAfEvent *pZPSEvent,
@@ -457,28 +456,30 @@ PRIVATE teZCL_Status APP_TTS_eCommandHandler(
     tsZCL_HeaderParams sHeader;
     uint16 u16HeaderSize;
     uint16 u16PayloadSize;
-    uint16 u16ActualQuantity = 0;
+    uint16 u16Actual[4] = {0, 0, 0, 0};
     uint8 u8Version = 0;
+    uint8 u8Level = 0;
+    uint8 u8TextLength = 0;
+    uint8 au8Text[32] = {0};
     uint8 u8SequenceNumber = 0;
+    uint8 i;
     teZCL_Status eStatus;
+    char acSerial[50];
 
-    tsZCL_RxPayloadItem sRxPayload = {
-        1,
-        &u16ActualQuantity,
-        E_ZCL_UINT8,
-        &u8Version
+    tsZCL_RxPayloadItem asPayload[4] = {
+        {1, &u16Actual[0], E_ZCL_UINT8, &u8Version},
+        {1, &u16Actual[1], E_ZCL_UINT8, &u8Level},
+        {1, &u16Actual[2], E_ZCL_UINT8, &u8TextLength},
+        {32, &u16Actual[3], E_ZCL_UINT8, au8Text}
     };
 
     (void)psEndPointDefinition;
 
     if (pZPSEvent == NULL ||
         psClusterInstance == NULL ||
-        psClusterInstance->psClusterDefinition == NULL) {
-        return E_ZCL_FAIL;
-    }
-
-    if (psClusterInstance->psClusterDefinition->u16ClusterEnum !=
-        TTS_CLUSTER_ID) {
+        psClusterInstance->psClusterDefinition == NULL ||
+        psClusterInstance->psClusterDefinition->u16ClusterEnum !=
+            TTS_CLUSTER_ID) {
         return E_ZCL_FAIL;
     }
 
@@ -486,37 +487,86 @@ PRIVATE teZCL_Status APP_TTS_eCommandHandler(
         pZPSEvent->uEvent.sApsDataIndEvent.hAPduInst,
         &sHeader);
 
-    if (sHeader.eFrameType !=
-            eFRAME_TYPE_COMMAND_IS_SPECIFIC_TO_A_CLUSTER ||
-        sHeader.bManufacturerSpecific != TRUE ||
-        sHeader.u16ManufacturerCode != ZCL_MANUFACTURER_CODE ||
-        sHeader.bDirection != FALSE ||
-        sHeader.u8CommandIdentifier != TTS_CMD_FRAGMENT) {
-        return E_ZCL_FAIL;
-    }
-
     u16PayloadSize = PDUM_u16APduInstanceGetPayloadSize(
         pZPSEvent->uEvent.sApsDataIndEvent.hAPduInst);
 
-    if (u16HeaderSize >= u16PayloadSize ||
-        (u16PayloadSize - u16HeaderSize) != 1) {
+    if (u16HeaderSize > u16PayloadSize ||
+        sHeader.eFrameType !=
+            eFRAME_TYPE_COMMAND_IS_SPECIFIC_TO_A_CLUSTER ||
+        sHeader.bManufacturerSpecific != TRUE ||
+        sHeader.u16ManufacturerCode != ZCL_MANUFACTURER_CODE ||
+        sHeader.bDirection != FALSE) {
+        return E_ZCL_FAIL;
+    }
+
+    /* Keep the previously tested command fully functional. */
+    if (sHeader.u8CommandIdentifier == TTS_CMD_FRAGMENT) {
+        if (u16PayloadSize - u16HeaderSize != 1) {
+            return E_ZCL_FAIL;
+        }
+
+        eStatus = eZCL_CustomCommandReceive(
+            pZPSEvent, &u8SequenceNumber, asPayload,
+            1, E_ZCL_ACCEPT_LESS);
+
+        if (eStatus == E_ZCL_SUCCESS &&
+            u16Actual[0] == 1 &&
+            u8Version == TTS_PROTOCOL_VERSION) {
+            APP_vSendSerialMessage("TTS,TEST,1\n");
+        }
+
+        return eStatus;
+    }
+
+    /* New short text command, separate from fragment protocol. */
+    if (sHeader.u8CommandIdentifier != 0x02 ||
+        u16PayloadSize - u16HeaderSize != 35) {
         return E_ZCL_FAIL;
     }
 
     eStatus = eZCL_CustomCommandReceive(
-        pZPSEvent,
-        &u8SequenceNumber,
-        &sRxPayload,
-        1,
-        E_ZCL_ACCEPT_LESS);
+        pZPSEvent, &u8SequenceNumber, asPayload,
+        4, E_ZCL_ACCEPT_LESS);
 
-    if (eStatus == E_ZCL_SUCCESS &&
-        u16ActualQuantity == 1 &&
-        u8Version == TTS_PROTOCOL_VERSION) {
-        APP_vSendSerialMessage("TTS,TEST,1\n");
+    if (eStatus != E_ZCL_SUCCESS ||
+        u16Actual[0] != 1 ||
+        u16Actual[1] != 1 ||
+        u16Actual[2] != 1 ||
+        u16Actual[3] != 32 ||
+        u8Version != TTS_PROTOCOL_VERSION ||
+        u8Level < 1 || u8Level > 3 ||
+        u8TextLength == 0 || u8TextLength > 32) {
+        return E_ZCL_FAIL;
     }
 
-    return eStatus;
+    /* ASCII only for this first test. No UART control characters. */
+    for (i = 0; i < u8TextLength; i++) {
+        if (au8Text[i] < 32 || au8Text[i] > 126) {
+            return E_ZCL_FAIL;
+        }
+    }
+
+    /* Reject nonzero padding bytes. */
+    for (i = u8TextLength; i < 32; i++) {
+        if (au8Text[i] != 0) {
+            return E_ZCL_FAIL;
+        }
+    }
+
+    memcpy(acSerial, "TTS,SHORT,", 10);
+    acSerial[10] = '0' + u8Level;
+    acSerial[11] = ',';
+
+    for (i = 0; i < u8TextLength; i++) {
+        acSerial[12 + i] = (char)au8Text[i];
+    }
+
+    acSerial[12 + u8TextLength] = '\n';
+    acSerial[13 + u8TextLength] = '\0';
+
+    APP_vSendSerialMessage(acSerial);
+
+    return E_ZCL_SUCCESS;
 }
 
 /**
