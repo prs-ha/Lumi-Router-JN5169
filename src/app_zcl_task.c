@@ -443,19 +443,23 @@ PRIVATE void APP_ZCL_vHandleConfigureReportingRecord(tsZCL_CallBackEvent *psEven
 /**
  * Experimental TTS receive test.
  *
- * Stage 1 accepts a one-byte protocol-version payload.
- * No text, audio playback, or fragment assembly is enabled.
+ * Accept only command 0x00, manufacturer 0x1037,
+ * client-to-server direction, and exactly one
+ * payload byte equal to protocol version 1.
  *
- * Command ID validation and full payload parsing belong to Stage 2.
+ * No fragment assembly or audio playback yet.
  */
 PRIVATE teZCL_Status APP_TTS_eCommandHandler(
     ZPS_tsAfEvent *pZPSEvent,
     tsZCL_EndPointDefinition *psEndPointDefinition,
     tsZCL_ClusterInstance *psClusterInstance)
 {
+    tsZCL_HeaderParams sHeader;
+    uint16 u16HeaderSize;
+    uint16 u16PayloadSize;
+    uint16 u16ActualQuantity = 0;
     uint8 u8Version = 0;
     uint8 u8SequenceNumber = 0;
-    uint16 u16ActualQuantity = 0;
     teZCL_Status eStatus;
 
     tsZCL_RxPayloadItem sRxPayload = {
@@ -466,7 +470,38 @@ PRIVATE teZCL_Status APP_TTS_eCommandHandler(
     };
 
     (void)psEndPointDefinition;
-    (void)psClusterInstance;
+
+    if (pZPSEvent == NULL ||
+        psClusterInstance == NULL ||
+        psClusterInstance->psClusterDefinition == NULL) {
+        return E_ZCL_FAIL;
+    }
+
+    if (psClusterInstance->psClusterDefinition->u16ClusterEnum !=
+        TTS_CLUSTER_ID) {
+        return E_ZCL_FAIL;
+    }
+
+    u16HeaderSize = u16ZCL_ReadCommandHeader(
+        pZPSEvent->uEvent.sApsDataIndEvent.hAPduInst,
+        &sHeader);
+
+    if (sHeader.eFrameType !=
+            eFRAME_TYPE_COMMAND_IS_SPECIFIC_TO_A_CLUSTER ||
+        sHeader.bManufacturerSpecific != TRUE ||
+        sHeader.u16ManufacturerCode != ZCL_MANUFACTURER_CODE ||
+        sHeader.bDirection != FALSE ||
+        sHeader.u8CommandIdentifier != TTS_CMD_FRAGMENT) {
+        return E_ZCL_FAIL;
+    }
+
+    u16PayloadSize = PDUM_u16APduInstanceGetPayloadSize(
+        pZPSEvent->uEvent.sApsDataIndEvent.hAPduInst);
+
+    if (u16HeaderSize >= u16PayloadSize ||
+        (u16PayloadSize - u16HeaderSize) != 1) {
+        return E_ZCL_FAIL;
+    }
 
     eStatus = eZCL_CustomCommandReceive(
         pZPSEvent,
