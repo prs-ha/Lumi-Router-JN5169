@@ -518,6 +518,113 @@ PRIVATE teZCL_Status APP_TTS_eCommandHandler(
         return eStatus;
     }
 
+
+    /*
+     * Fragment command 0x03:
+     * version, message_id low/high, level, index, count,
+     * length, and 1..64 raw UTF-8 bytes.
+     *
+     * UART carries hex-encoded bytes; no audio is played.
+     */
+    if (sHeader.u8CommandIdentifier == TTS_CMD_DATA_FRAGMENT) {
+        uint16 au16FragActual[8] = {0};
+        uint8 u8FragVersion = 0;
+        uint8 u8IdLow = 0;
+        uint8 u8IdHigh = 0;
+        uint8 u8FragLevel = 0;
+        uint8 u8FragIndex = 0;
+        uint8 u8FragCount = 0;
+        uint8 u8FragLength = 0;
+        uint8 au8Fragment[TTS_FRAGMENT_BYTES] = {0};
+        uint8 u8J;
+        uint16 u16Pos = 0;
+        char acFragmentSerial[160];
+        const char acHex[] = "0123456789ABCDEF";
+
+        tsZCL_RxPayloadItem asFragmentPayload[8] = {
+            {1, &au16FragActual[0], E_ZCL_UINT8, &u8FragVersion},
+            {1, &au16FragActual[1], E_ZCL_UINT8, &u8IdLow},
+            {1, &au16FragActual[2], E_ZCL_UINT8, &u8IdHigh},
+            {1, &au16FragActual[3], E_ZCL_UINT8, &u8FragLevel},
+            {1, &au16FragActual[4], E_ZCL_UINT8, &u8FragIndex},
+            {1, &au16FragActual[5], E_ZCL_UINT8, &u8FragCount},
+            {1, &au16FragActual[6], E_ZCL_UINT8, &u8FragLength},
+            {TTS_FRAGMENT_BYTES, &au16FragActual[7],
+             E_ZCL_UINT8, au8Fragment}
+        };
+
+        if (u16PayloadSize - u16HeaderSize < 8 ||
+            u16PayloadSize - u16HeaderSize >
+                TTS_FRAGMENT_PAYLOAD_MAX_BYTES) {
+            return E_ZCL_FAIL;
+        }
+
+        eStatus = eZCL_CustomCommandReceive(
+            pZPSEvent,
+            &u8SequenceNumber,
+            asFragmentPayload,
+            8,
+            E_ZCL_ACCEPT_LESS);
+
+        if (eStatus != E_ZCL_SUCCESS) {
+            return eStatus;
+        }
+
+        for (u8J = 0; u8J < 7; u8J++) {
+            if (au16FragActual[u8J] != 1) {
+                return E_ZCL_FAIL;
+            }
+        }
+
+        if (u8FragVersion != TTS_PROTOCOL_VERSION ||
+            u8FragLevel < TTS_ALERT_INFO ||
+            u8FragLevel > TTS_ALERT_URGENT ||
+            u8FragCount == 0 ||
+            u8FragCount > TTS_MAX_FRAGMENTS ||
+            u8FragIndex >= u8FragCount ||
+            u8FragLength == 0 ||
+            u8FragLength > TTS_FRAGMENT_BYTES ||
+            au16FragActual[7] != u8FragLength ||
+            u16PayloadSize - u16HeaderSize !=
+                TTS_FRAGMENT_HEADER_BYTES + u8FragLength) {
+            return E_ZCL_FAIL;
+        }
+
+        /* Format: TTS,FRAG,IIII,L,I,C,NN,HEX */
+        memcpy(acFragmentSerial, "TTS,FRAG,", 9);
+        u16Pos = 9;
+
+        acFragmentSerial[u16Pos++] = acHex[u8IdHigh >> 4];
+        acFragmentSerial[u16Pos++] = acHex[u8IdHigh & 15];
+        acFragmentSerial[u16Pos++] = acHex[u8IdLow >> 4];
+        acFragmentSerial[u16Pos++] = acHex[u8IdLow & 15];
+        acFragmentSerial[u16Pos++] = ',';
+
+        acFragmentSerial[u16Pos++] = '0' + u8FragLevel;
+        acFragmentSerial[u16Pos++] = ',';
+        acFragmentSerial[u16Pos++] = '0' + u8FragIndex;
+        acFragmentSerial[u16Pos++] = ',';
+        acFragmentSerial[u16Pos++] = '0' + u8FragCount;
+        acFragmentSerial[u16Pos++] = ',';
+
+        acFragmentSerial[u16Pos++] = acHex[u8FragLength >> 4];
+        acFragmentSerial[u16Pos++] = acHex[u8FragLength & 15];
+        acFragmentSerial[u16Pos++] = ',';
+
+        for (u8J = 0; u8J < u8FragLength; u8J++) {
+            acFragmentSerial[u16Pos++] =
+                acHex[au8Fragment[u8J] >> 4];
+            acFragmentSerial[u16Pos++] =
+                acHex[au8Fragment[u8J] & 15];
+        }
+
+        acFragmentSerial[u16Pos++] = '\n';
+        acFragmentSerial[u16Pos] = '\0';
+
+        APP_vSendSerialMessage(acFragmentSerial);
+        return E_ZCL_SUCCESS;
+    }
+
     /* New short text command, separate from fragment protocol. */
     if (sHeader.u8CommandIdentifier != 0x02 ||
         u16PayloadSize - u16HeaderSize != 35) {

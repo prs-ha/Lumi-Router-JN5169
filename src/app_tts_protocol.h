@@ -37,6 +37,15 @@
 /* Commands */
 #define TTS_CMD_FRAGMENT 0x00
 #define TTS_CMD_ACK      0x01
+#define TTS_CMD_SHORT    0x02
+#define TTS_CMD_DATA_FRAGMENT 0x03
+
+/* Fragment header, excluding Zigbee ZCL header */
+#define TTS_FRAGMENT_HEADER_BYTES 7
+
+/* Maximum fragment payload: 7 + 64 = 71 bytes */
+#define TTS_FRAGMENT_PAYLOAD_MAX_BYTES 71
+
 
 /*
  * Fragment payload:
