@@ -28,6 +28,9 @@ typedef struct {
     tsZCL_ClusterInstance sLevelControlServer;
     tsZCL_ClusterInstance sColourControlServer;
 
+    /* Experimental Zigbee TTS server */
+    tsZCL_ClusterInstance sTtsServer;
+
 } APP_tsLumiRouterClusterInstances __attribute__((aligned(4)));
 
 typedef struct {

@@ -17,6 +17,8 @@
 #include "app_zcl_task.h"
 #include "app_serial_commands.h"
 #include "zcl_options.h"
+#include "app_tts_protocol.h"
+#include "zcl_customcommand.h"
 
 /* SDK JN-SW-4170 */
 #include "Basic.h"
@@ -49,6 +51,24 @@ PRIVATE void APP_ZCL_vDeviceSpecific_Init(void);
 PRIVATE uint8 APP_u8AppendDecimal(char *pcBuffer, uint8 u8Value);
 
 PUBLIC APP_tsLumiRouter sLumiRouter;
+
+/* TTS experimental cluster: no attributes yet */
+PRIVATE tsZCL_ClusterDefinition sTtsClusterDefinition = {
+    .u16ClusterEnum = TTS_CLUSTER_ID,
+    .bIsManufacturerSpecificCluster = TRUE,
+    .u8ClusterControlFlags = 0,
+    .u16NumberOfAttributes = 0,
+    .psAttributeDefinition = NULL,
+    .psSceneExtensionTable = NULL
+};
+
+PRIVATE uint8 u8TtsClusterData;
+PRIVATE uint8 au8TtsAttributeControlBits[1];
+
+PRIVATE teZCL_Status APP_TTS_eCommandHandler(
+    ZPS_tsAfEvent *pZPSEvent,
+    tsZCL_EndPointDefinition *psEndPointDefinition,
+    tsZCL_ClusterInstance *psClusterInstance);
 
 /* RGB attribute control buffers */
 PRIVATE uint8 au8RgbOnOffAttrBits[sizeof(tsCLD_OnOff)];
@@ -421,6 +441,50 @@ PRIVATE void APP_ZCL_vHandleConfigureReportingRecord(tsZCL_CallBackEvent *psEven
 }
 
 /**
+ * Experimental TTS receive test.
+ *
+ * Stage 1 accepts a one-byte protocol-version payload.
+ * No text, audio playback, or fragment assembly is enabled.
+ *
+ * Command ID validation and full payload parsing belong to Stage 2.
+ */
+PRIVATE teZCL_Status APP_TTS_eCommandHandler(
+    ZPS_tsAfEvent *pZPSEvent,
+    tsZCL_EndPointDefinition *psEndPointDefinition,
+    tsZCL_ClusterInstance *psClusterInstance)
+{
+    uint8 u8Version = 0;
+    uint8 u8SequenceNumber = 0;
+    uint16 u16ActualQuantity = 0;
+    teZCL_Status eStatus;
+
+    tsZCL_RxPayloadItem sRxPayload = {
+        1,
+        &u16ActualQuantity,
+        E_ZCL_UINT8,
+        &u8Version
+    };
+
+    (void)psEndPointDefinition;
+    (void)psClusterInstance;
+
+    eStatus = eZCL_CustomCommandReceive(
+        pZPSEvent,
+        &u8SequenceNumber,
+        &sRxPayload,
+        1,
+        E_ZCL_ACCEPT_LESS);
+
+    if (eStatus == E_ZCL_SUCCESS &&
+        u16ActualQuantity == 1 &&
+        u8Version == TTS_PROTOCOL_VERSION) {
+        APP_vSendSerialMessage("TTS,TEST,1\n");
+    }
+
+    return eStatus;
+}
+
+/**
  * @brief Creates cluster instances and registers the application endpoint with ZCL
  */
 PRIVATE teZCL_Status APP_ZCL_eRegisterEndPoint(tfpZCL_ZCLCallBackFunction cbCallBack, APP_tsLumiRouter *psDeviceInfo)
@@ -519,6 +583,16 @@ PRIVATE teZCL_Status APP_ZCL_eRegisterEndPoint(tfpZCL_ZCLCallBackFunction cbCall
     if (eZCL_Status != E_ZCL_SUCCESS) {
         return eZCL_Status;
     }
+
+    /* Register experimental TTS cluster */
+    vZCL_InitializeClusterInstance(
+        &psDeviceInfo->sClusterInstance.sTtsServer,
+        TRUE,
+        &sTtsClusterDefinition,
+        &u8TtsClusterData,
+        au8TtsAttributeControlBits,
+        NULL,
+        APP_TTS_eCommandHandler);
 
     /* Register all clusters */
     return eZCL_Register(&psDeviceInfo->sEndPoint);
